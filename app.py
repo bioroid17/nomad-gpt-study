@@ -265,6 +265,9 @@ if not docs:
     )
 else:
     response = run_quiz_chain(docs, topic if topic else file.name)
+    questions = response["questions"]
+    questions_num = len(questions)
+    score = 0
     with st.form("questions_form"):
         for question in response["questions"]:
             st.write(question["question"])
@@ -275,6 +278,9 @@ else:
             )
             if {"answer": value, "correct": True} in question["answers"]:
                 st.success("Correct!")
+                score += 1
             elif value is not None:
                 st.error("Wrong!")
         button = st.form_submit_button()
+        if score == questions_num:
+            st.balloons()
