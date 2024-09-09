@@ -7,8 +7,10 @@ from langchain.prompts import PromptTemplate
 from langchain.callbacks import StreamingStdOutCallbackHandler
 from langchain.schema.runnable import RunnablePassthrough
 import streamlit as st
-import openai
+import openai, os
 
+if not os.path.exists("./.cache/quizgpt/files/"):
+    os.mkdir("./.cache/quizgpt/files/")
 
 st.set_page_config(
     page_title="QuizGPT",
