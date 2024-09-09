@@ -216,6 +216,10 @@ with st.sidebar:
         False,
         disabled=is_invalid,
     )
+    st.link_button(
+        "Github repo",
+        "https://github.com/bioroid17/nomad-gpt-study/tree/quizgpt",
+    )
 
 if not docs:
     st.markdown(
