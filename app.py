@@ -5,7 +5,6 @@ from langchain.retrievers import WikipediaRetriever
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.callbacks import StreamingStdOutCallbackHandler
-from langchain.schema.runnable import RunnablePassthrough
 import streamlit as st
 import openai, os
 
