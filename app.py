@@ -9,6 +9,10 @@ from langchain.schema.runnable import RunnablePassthrough
 import streamlit as st
 import openai, os
 
+if not os.path.exists("./.cache/"):
+    os.mkdir("./.cache/")
+if not os.path.exists("./.cache/quizgpt/"):
+    os.mkdir("./.cache/quizgpt/")
 if not os.path.exists("./.cache/quizgpt/files/"):
     os.mkdir("./.cache/quizgpt/files/")
 
