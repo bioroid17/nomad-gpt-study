@@ -163,7 +163,6 @@ def load_website(url):
             parsing_function=parse_page,
         )
         loader.requests_per_second = 5
-        # Set a realistic user agent
 
         docs = loader.load_and_split(text_splitter=splitter)
         cache_dir = LocalFileStore(f"./.cache/sitegpt/{url.split('/')[2]}")
