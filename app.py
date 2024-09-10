@@ -177,6 +177,7 @@ def load_website(url):
         vector_store = FAISS.from_documents(docs, cached_embeddings)
         return vector_store.as_retriever()
     except Exception as e:
+        print(e)
         return []
 
 
