@@ -31,8 +31,12 @@ st.markdown(
 )
 
 
+with st.sidebar:
+    API_KEY = st.text_input("Enter your OpenAI API key", type="password")
+
 llm = ChatOpenAI(
     temperature=0.1,
+    api_key=API_KEY,
 )
 
 
@@ -177,7 +181,6 @@ def load_website(url):
 
 
 with st.sidebar:
-    API_KEY = st.text_input("Enter your OpenAI API key", type="password")
     is_invalid = validate_key(API_KEY)
     url = st.text_input(
         "Write down a URL",
