@@ -7,7 +7,12 @@ from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 import streamlit as st
-import openai
+import openai, os
+
+if not os.path.exists("./.cache/"):
+    os.mkdir("./.cache/")
+if not os.path.exists("./.cache/sitegpt/"):
+    os.mkdir("./.cache/sitegpt/")
 
 
 st.set_page_config(
