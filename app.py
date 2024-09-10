@@ -177,7 +177,6 @@ def load_website(url):
         vector_store = FAISS.from_documents(docs, cached_embeddings)
         return vector_store.as_retriever()
     except Exception as e:
-        print(e)
         return []
 
 
@@ -205,7 +204,12 @@ from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 import streamlit as st
-import openai
+import openai, os
+
+if not os.path.exists("./.cache/"):
+    os.mkdir("./.cache/")
+if not os.path.exists("./.cache/sitegpt/"):
+    os.mkdir("./.cache/sitegpt/")
 
 
 st.set_page_config(
@@ -224,8 +228,12 @@ st.markdown(
 )
 
 
+with st.sidebar:
+    API_KEY = st.text_input("Enter your OpenAI API key", type="password")
+
 llm = ChatOpenAI(
     temperature=0.1,
+    api_key=API_KEY,
 )
 
 
@@ -356,11 +364,10 @@ def load_website(url):
             parsing_function=parse_page,
         )
         loader.requests_per_second = 5
-        # Set a realistic user agent
 
         docs = loader.load_and_split(text_splitter=splitter)
         cache_dir = LocalFileStore(f"./.cache/sitegpt/{url.split('/')[2]}")
-        embeddings = OpenAIEmbeddings()
+        embeddings = OpenAIEmbeddings(api_key=API_KEY)
         cached_embeddings = CacheBackedEmbeddings.from_bytes_store(
             embeddings, cache_dir
         )
@@ -371,7 +378,6 @@ def load_website(url):
 
 
 with st.sidebar:
-    API_KEY = st.text_input("Enter your OpenAI API key", type="password")
     is_invalid = validate_key(API_KEY)
     url = st.text_input(
         "Write down a URL",
@@ -380,12 +386,14 @@ with st.sidebar:
     )
     st.link_button(
         "Github repo",
-        "https://github.com/bioroid17/nomad-gpt-study/tree/streamlit",
+        "https://github.com/bioroid17/nomad-gpt-study/tree/sitegpt",
     )
     with st.expander("View source code"):
-        st.markdown('''
-<코드 본문>
-''')
+        st.markdown(
+            '''
+(코드 본문)
+'''
+        )
 
 if url:
     if ".xml" not in url:
@@ -409,7 +417,7 @@ if url:
             )
 
             result = chain.invoke(query)
-            st.markdown(result.content.replace("$", "\$"))
+            st.markdown(result.content.replace("$", "\\$"))
 
 ```
 """
