@@ -170,7 +170,7 @@ def load_website(url):
 
         docs = loader.load_and_split(text_splitter=splitter)
         cache_dir = LocalFileStore(f"./.cache/sitegpt/{url.split('/')[2]}")
-        embeddings = OpenAIEmbeddings()
+        embeddings = OpenAIEmbeddings(api_key=API_KEY)
         cached_embeddings = CacheBackedEmbeddings.from_bytes_store(
             embeddings, cache_dir
         )
