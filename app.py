@@ -1,10 +1,10 @@
 import json
 from time import sleep
 import openai as client
+from openai.types.beta.threads import Text
 import streamlit as st
-from langchain.chat_models import ChatOpenAI
 from langchain_community.utilities import WikipediaAPIWrapper
-from langchain.tools import WikipediaQueryRun, DuckDuckGoSearchResults
+from langchain_community.tools import WikipediaQueryRun, DuckDuckGoSearchResults
 from langchain_community.document_loaders import WebBaseLoader
 from typing_extensions import override
 from openai import AssistantEventHandler
@@ -13,27 +13,39 @@ from openai import AssistantEventHandler
 # # how we want to handle the events in the response stream.
 
 
-# class EventHandler(AssistantEventHandler):
-#     @override
-#     def on_text_created(self, text) -> None:
-#         print(f"\nassistant > ", end="", flush=True)
+class EventHandler(AssistantEventHandler):
 
-#     @override
-#     def on_text_delta(self, delta, snapshot):
-#         print(delta.value, end="", flush=True)
+    message = ""
 
-#     def on_tool_call_created(self, tool_call):
-#         print(f"\nassistant > {tool_call.type}\n", flush=True)
+    @override
+    def on_text_created(self, text) -> None:
+        self.message_box = st.empty()
+        print(text)
+        print(f"\nassistant > ", end="", flush=True)
 
-#     def on_tool_call_delta(self, delta, snapshot):
-#         if delta.type == "code_interpreter":
-#             if delta.code_interpreter.input:
-#                 print(delta.code_interpreter.input, end="", flush=True)
-#             if delta.code_interpreter.outputs:
-#                 print(f"\n\noutput >", flush=True)
-#                 for output in delta.code_interpreter.outputs:
-#                     if output.type == "logs":
-#                         print(f"\n{output.logs}", flush=True)
+    @override
+    def on_text_delta(self, delta, snapshot):
+        self.message += delta.value
+        self.message_box.markdown(self.message)
+        print(delta.value, end="", flush=True)
+
+    def on_text_done(self, text):
+        save_message(self.message, "assistant")
+
+    def on_tool_call_created(self, tool_call):
+        print(f"\nassistant > {tool_call.type}\n", flush=True)
+
+    def on_tool_call_delta(self, delta, snapshot):
+        print(delta)
+        if delta.type == "code_interpreter":
+            if delta.code_interpreter.input:
+                print(delta.code_interpreter.input, end="", flush=True)
+            if delta.code_interpreter.outputs:
+                print(f"\n\noutput >", flush=True)
+                for output in delta.code_interpreter.outputs:
+                    if output.type == "logs":
+                        print(f"\n{output.logs}", flush=True)
+
 
 st.set_page_config(
     page_title="Assistant",
@@ -246,24 +258,36 @@ if not is_invalid:
     if content:
         send_message(thread.id, content)
         save_message(content, "user")
-        if "run" not in st.session_state or st.session_state["run"].status == "expired":
-            run = client.beta.threads.runs.create(
-                thread_id=thread.id,
-                assistant_id=assistant.id,
-            )
-            st.session_state["run"] = run
-        else:
-            run = st.session_state["run"]
+        draw_message(content, "user")
+        # if "run" not in st.session_state or st.session_state["run"].status not in [
+        #     "expired",
+        #     "complete",
+        # ]:
+        #     run = client.beta.threads.runs.create(
+        #         thread_id=thread.id,
+        #         assistant_id=assistant.id,
+        #     )
+        #     st.session_state["run"] = run
+        # else:
+        #     run = st.session_state["run"]
 
-        while run.status != "completed":
-            if run.status == "requires_action":
-                submit_tool_outputs(run.id, thread.id)
-            if run.status == "expired":
-                break
-            sleep(2)
-        else:
-            messages = get_messages(thread.id)
-            recent_reply = messages[0]
-            save_message(recent_reply.content, "assistant")
+        # if run.status != "completed":
+        #     run.
+        #     print(run.status)
+        #     if run.status == "requires_action":
+        #         submit_tool_outputs(run.id, thread.id)
+        #     if run.status == "expired":
+        #         break
+        #     sleep(2)
+        # else:
+        #     messages = get_messages(thread.id)
+        #     recent_reply = messages[0]
+        #     save_message(recent_reply.content, "assistant")
+        with client.beta.threads.runs.stream(
+            thread_id=thread.id,
+            assistant_id=assistant.id,
+            event_handler=EventHandler(),
+        ) as stream:
+            stream.until_done()
 else:
     st.sidebar.warning("Input OpenAI API Key.")
