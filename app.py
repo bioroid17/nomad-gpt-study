@@ -3,9 +3,9 @@ from time import sleep
 import openai as client
 import streamlit as st
 from langchain.chat_models import ChatOpenAI
-from langchain.utilities import WikipediaAPIWrapper
+from langchain_community.utilities import WikipediaAPIWrapper
 from langchain.tools import WikipediaQueryRun, DuckDuckGoSearchResults
-from langchain.document_loaders import WebBaseLoader
+from langchain_community.document_loaders import WebBaseLoader
 from typing_extensions import override
 from openai import AssistantEventHandler
 
@@ -50,7 +50,6 @@ def validate_key(api_key):
         client.models.list()
         return False
     except Exception as e:
-        print(e)
         return True
 
 
