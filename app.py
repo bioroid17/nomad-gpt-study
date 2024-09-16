@@ -1,12 +1,8 @@
 import json
-from time import sleep
 import openai as client
-from openai.types.beta.threads import Text
-from openai.types.beta.threads.runs import RunStep, RunStepDelta
 import streamlit as st
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun, DuckDuckGoSearchRun
-from langchain_community.document_loaders import WebBaseLoader
 from typing_extensions import override
 from openai import AssistantEventHandler
 
@@ -25,30 +21,19 @@ class EventHandler(AssistantEventHandler):
         self.message_box = st.empty()
 
     def on_text_delta(self, delta, snapshot):
-        self.message_box.markdown(snapshot.value)
+        self.message += delta.value
+        self.message_box.markdown(self.message)
 
     def on_text_done(self, text):
         save_message(text.value, "assistant")
 
     def on_event(self, event):
         if event.event == "thread.run.created":
-            # self.message_box = st.empty()
             self.run_id = event.data.id
             self.thread_id = event.data.thread_id
 
         if event.event == "thread.run.requires_action":
             submit_tool_outputs(self.run_id, self.thread_id)
-
-        # if event.event == "thread.message.delta":
-        #     self.message += event.data.delta.content[0].text.value
-        #     self.message_box.markdown(self.message)
-
-        # if event.event == "thread.message.completed":
-        #     save_message(self.message, "assistant")
-
-    def on_end(self):
-        messages = get_messages(self.thread_id)
-        print(messages)
 
 
 st.set_page_config(
@@ -102,19 +87,9 @@ def duckduckgo_search(inputs):
     return urls
 
 
-# def duckduckgo_scrape(inputs):
-#     urls = inputs["urls"]
-#     # 획득한 결과에서 url을 뽑아내서 리스트로 채우는 코드
-#     urls = [chunk.split("]")[0] for chunk in result.split("link: ")][1:]
-#     loader = WebBaseLoader(urls)
-#     docs = loader.load()
-#     return docs
-
-
 functions_map = {
     "wikipedia_search": wikipedia_search,
     "duckduckgo_search": duckduckgo_search,
-    # "duckduckgo_scrape": duckduckgo_scrape,
 }
 
 functions = [
@@ -152,20 +127,6 @@ functions = [
             },
         },
     },
-    # {
-    #     "type": "function",
-    #     "function": {
-    #         "name": "duckduckgo_scrape",
-    #         "description": "Given the list of urls, return the list of documents.",
-    #         "parameters": {
-    #             "type": "array",
-    #             "items": {
-    #                 "type": "string",
-    #             },
-    #             "required": ["urls"],
-    #         },
-    #     },
-    # },
 ]
 
 
@@ -183,20 +144,6 @@ def send_message(thread_id, content):
         role="user",
         content=content,
     )
-
-
-def get_messages(thread_id):
-    messages = client.beta.threads.messages.list(thread_id=thread_id)
-    messages = list(messages)
-    return messages
-
-
-# def get_messages(thread_id):
-#     messages = client.beta.threads.messages.list(thread_id=thread_id)
-#     messages = list(messages)
-#     messages.reverse()
-#     for message in messages:
-#         print(f"{message.role}: {message.content[0].text.value}")
 
 
 def get_tool_outputs(run_id, thread_id):
@@ -217,11 +164,13 @@ def get_tool_outputs(run_id, thread_id):
 
 def submit_tool_outputs(run_id, thread_id):
     outputs = get_tool_outputs(run_id, thread_id)
-    return client.beta.threads.runs.submit_tool_outputs(
+    with client.beta.threads.runs.submit_tool_outputs_stream(
         run_id=run_id,
         thread_id=thread_id,
         tool_outputs=outputs,
-    )
+        event_handler=EventHandler(),
+    ) as stream:
+        stream.until_done()
 
 
 def insert_message(message, role, save=True):
