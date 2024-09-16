@@ -3,7 +3,8 @@ import streamlit as st
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun, DuckDuckGoSearchRun
 from typing_extensions import override
-from openai import AssistantEventHandler, OpenAI
+from openai import AssistantEventHandler
+import openai as client
 
 # # First, we create a EventHandler class to define
 # # how we want to handle the events in the response stream.
@@ -211,7 +212,6 @@ if "run" in st.session_state:
     pass
 
 if not is_invalid:
-    client = OpenAI(api_key=API_KEY)
     if "assistant" not in st.session_state:
         assistants = client.beta.assistants.list(limit=10)
         for a in assistants:
