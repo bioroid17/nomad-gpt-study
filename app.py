@@ -26,9 +26,6 @@ class EventHandler(AssistantEventHandler):
         self.message += delta.value
         self.message_box.markdown(self.message)
 
-    # def on_text_done(self, text):
-    #     save_message(text.value, "assistant")
-
     def on_event(self, event):
         if event.event == "thread.run.created":
             self.run_id = event.data.id
@@ -192,10 +189,6 @@ def insert_message(message, role):
         st.markdown(message)
 
 
-# def save_message(message, role):
-#     st.session_state["messages"].append({"message": message, "role": role})
-
-
 def paint_history(thread_id):
     messages = get_messages(thread_id)
     for message in messages:
@@ -241,7 +234,6 @@ if not is_invalid:
                 assistant_id=assistant.id,
                 event_handler=EventHandler(),
             ) as stream:
-                with st.spinner("Processing..."):
-                    stream.until_done()
+                stream.until_done()
 else:
     st.sidebar.warning("Input OpenAI API Key.")
