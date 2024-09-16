@@ -64,7 +64,6 @@ with st.sidebar:
     with st.expander("View source code"):
         st.markdown(
             """
-```python
 import json
 import openai as client
 import streamlit as st
@@ -131,7 +130,7 @@ with st.sidebar:
     with st.expander("View source code"):
         st.markdown(
             '''
-
+(코드 본문)
 ''')
 
 st.title("Assistant")
@@ -303,18 +302,18 @@ if not is_invalid:
 else:
     st.sidebar.warning("Input OpenAI API Key.")
 
-''')
+"""
+        )
 
 st.title("Assistant")
 
 st.markdown(
-    '''
+    """
 Welcome!
             
 Use this chatbot to ask questions to an AI!
-```
 """
-        )
+)
 
 
 # Tools
