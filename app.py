@@ -26,8 +26,8 @@ class EventHandler(AssistantEventHandler):
         self.message += delta.value
         self.message_box.markdown(self.message)
 
-    def on_text_done(self, text):
-        save_message(text.value, "assistant")
+    # def on_text_done(self, text):
+    #     save_message(text.value, "assistant")
 
     def on_event(self, event):
         if event.event == "thread.run.created":
@@ -187,15 +187,13 @@ def submit_tool_outputs(run_id, thread_id):
         stream.until_done()
 
 
-def insert_message(message, role, save=True):
+def insert_message(message, role):
     with st.chat_message(role):
         st.markdown(message)
-    if save:
-        save_message(message, role)
 
 
-def save_message(message, role):
-    st.session_state["messages"].append({"message": message, "role": role})
+# def save_message(message, role):
+#     st.session_state["messages"].append({"message": message, "role": role})
 
 
 def paint_history(thread_id):
@@ -204,7 +202,6 @@ def paint_history(thread_id):
         insert_message(
             message.content[0].text.value,
             message.role,
-            save=False,
         )
 
 
