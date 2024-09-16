@@ -2,9 +2,10 @@ import json
 from time import sleep
 import openai as client
 from openai.types.beta.threads import Text
+from openai.types.beta.threads.runs import RunStep, RunStepDelta
 import streamlit as st
 from langchain_community.utilities import WikipediaAPIWrapper
-from langchain_community.tools import WikipediaQueryRun, DuckDuckGoSearchResults
+from langchain_community.tools import WikipediaQueryRun, DuckDuckGoSearchRun
 from langchain_community.document_loaders import WebBaseLoader
 from typing_extensions import override
 from openai import AssistantEventHandler
@@ -16,35 +17,38 @@ from openai import AssistantEventHandler
 class EventHandler(AssistantEventHandler):
 
     message = ""
+    run_id = ""
+    thread_id = ""
 
     @override
     def on_text_created(self, text) -> None:
         self.message_box = st.empty()
-        print(text)
-        print(f"\nassistant > ", end="", flush=True)
 
-    @override
     def on_text_delta(self, delta, snapshot):
-        self.message += delta.value
-        self.message_box.markdown(self.message)
-        print(delta.value, end="", flush=True)
+        self.message_box.markdown(snapshot.value)
 
     def on_text_done(self, text):
-        save_message(self.message, "assistant")
+        save_message(text.value, "assistant")
 
-    def on_tool_call_created(self, tool_call):
-        print(f"\nassistant > {tool_call.type}\n", flush=True)
+    def on_event(self, event):
+        if event.event == "thread.run.created":
+            # self.message_box = st.empty()
+            self.run_id = event.data.id
+            self.thread_id = event.data.thread_id
 
-    def on_tool_call_delta(self, delta, snapshot):
-        print(delta)
-        if delta.type == "code_interpreter":
-            if delta.code_interpreter.input:
-                print(delta.code_interpreter.input, end="", flush=True)
-            if delta.code_interpreter.outputs:
-                print(f"\n\noutput >", flush=True)
-                for output in delta.code_interpreter.outputs:
-                    if output.type == "logs":
-                        print(f"\n{output.logs}", flush=True)
+        if event.event == "thread.run.requires_action":
+            submit_tool_outputs(self.run_id, self.thread_id)
+
+        # if event.event == "thread.message.delta":
+        #     self.message += event.data.delta.content[0].text.value
+        #     self.message_box.markdown(self.message)
+
+        # if event.event == "thread.message.completed":
+        #     save_message(self.message, "assistant")
+
+    def on_end(self):
+        messages = get_messages(self.thread_id)
+        print(messages)
 
 
 st.set_page_config(
@@ -93,24 +97,24 @@ def wikipedia_search(inputs):
 
 def duckduckgo_search(inputs):
     query = inputs["query"]
-    ddg = DuckDuckGoSearchResults()
-    result = ddg.run(query)
-    # 획득한 결과에서 url을 뽑아내서 리스트로 채우는 코드
-    urls = [chunk.split("]")[0] for chunk in result.split("link: ")][1:]
+    ddg = DuckDuckGoSearchRun()
+    urls = ddg.run(query)
     return urls
 
 
-def duckduckgo_scrape(inputs):
-    urls = inputs["urls"]
-    loader = WebBaseLoader(urls)
-    docs = loader.load()
-    return docs
+# def duckduckgo_scrape(inputs):
+#     urls = inputs["urls"]
+#     # 획득한 결과에서 url을 뽑아내서 리스트로 채우는 코드
+#     urls = [chunk.split("]")[0] for chunk in result.split("link: ")][1:]
+#     loader = WebBaseLoader(urls)
+#     docs = loader.load()
+#     return docs
 
 
 functions_map = {
     "wikipedia_search": wikipedia_search,
     "duckduckgo_search": duckduckgo_search,
-    "duckduckgo_scrape": duckduckgo_scrape,
+    # "duckduckgo_scrape": duckduckgo_scrape,
 }
 
 functions = [
@@ -135,7 +139,7 @@ functions = [
         "type": "function",
         "function": {
             "name": "duckduckgo_search",
-            "description": "Given the query, return the list of urls.",
+            "description": "Given the query, return the search result.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -148,23 +152,20 @@ functions = [
             },
         },
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "duckduckgo_scrape",
-            "description": "Given the list of urls, return the list of documents.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "urls": {
-                        "type": "string",
-                        "description": "The keyword of the information you want to search.",
-                    }
-                },
-                "required": ["urls"],
-            },
-        },
-    },
+    # {
+    #     "type": "function",
+    #     "function": {
+    #         "name": "duckduckgo_scrape",
+    #         "description": "Given the list of urls, return the list of documents.",
+    #         "parameters": {
+    #             "type": "array",
+    #             "items": {
+    #                 "type": "string",
+    #             },
+    #             "required": ["urls"],
+    #         },
+    #     },
+    # },
 ]
 
 
@@ -188,6 +189,14 @@ def get_messages(thread_id):
     messages = client.beta.threads.messages.list(thread_id=thread_id)
     messages = list(messages)
     return messages
+
+
+# def get_messages(thread_id):
+#     messages = client.beta.threads.messages.list(thread_id=thread_id)
+#     messages = list(messages)
+#     messages.reverse()
+#     for message in messages:
+#         print(f"{message.role}: {message.content[0].text.value}")
 
 
 def get_tool_outputs(run_id, thread_id):
@@ -215,9 +224,11 @@ def submit_tool_outputs(run_id, thread_id):
     )
 
 
-def draw_message(message, role):
+def insert_message(message, role, save=True):
     with st.chat_message(role):
         st.markdown(message)
+    if save:
+        save_message(message, role)
 
 
 def save_message(message, role):
@@ -226,17 +237,21 @@ def save_message(message, role):
 
 def paint_history():
     for message in st.session_state["messages"]:
-        draw_message(
+        insert_message(
             message["message"],
             message["role"],
+            save=False,
         )
 
+
+if "run" in st.session_state:
+    pass
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
+paint_history()
 if not is_invalid:
-    paint_history()
     if "assistant" not in st.session_state:
         assistant = client.beta.assistants.create(
             name="Search Assistant",
@@ -244,50 +259,25 @@ if not is_invalid:
             model="gpt-4o-mini",
             tools=functions,
         )
-        st.session_state["assistant"] = assistant
-    else:
-        assistant = st.session_state["assistant"]
-
-    if "thread" not in st.session_state:
         thread = client.beta.threads.create()
+        st.session_state["assistant"] = assistant
         st.session_state["thread"] = thread
     else:
+        assistant = st.session_state["assistant"]
         thread = st.session_state["thread"]
 
     content = st.chat_input("What do you want to search?", disabled=is_invalid)
     if content:
         send_message(thread.id, content)
-        save_message(content, "user")
-        draw_message(content, "user")
-        # if "run" not in st.session_state or st.session_state["run"].status not in [
-        #     "expired",
-        #     "complete",
-        # ]:
-        #     run = client.beta.threads.runs.create(
-        #         thread_id=thread.id,
-        #         assistant_id=assistant.id,
-        #     )
-        #     st.session_state["run"] = run
-        # else:
-        #     run = st.session_state["run"]
+        insert_message(content, "user")
 
-        # if run.status != "completed":
-        #     run.
-        #     print(run.status)
-        #     if run.status == "requires_action":
-        #         submit_tool_outputs(run.id, thread.id)
-        #     if run.status == "expired":
-        #         break
-        #     sleep(2)
-        # else:
-        #     messages = get_messages(thread.id)
-        #     recent_reply = messages[0]
-        #     save_message(recent_reply.content, "assistant")
-        with client.beta.threads.runs.stream(
-            thread_id=thread.id,
-            assistant_id=assistant.id,
-            event_handler=EventHandler(),
-        ) as stream:
-            stream.until_done()
+        with st.chat_message("assistant"):
+            with client.beta.threads.runs.stream(
+                thread_id=thread.id,
+                assistant_id=assistant.id,
+                event_handler=EventHandler(),
+            ) as stream:
+                with st.spinner("Processing..."):
+                    stream.until_done()
 else:
     st.sidebar.warning("Input OpenAI API Key.")
