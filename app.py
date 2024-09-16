@@ -64,6 +64,7 @@ with st.sidebar:
     with st.expander("View source code"):
         st.markdown(
             """
+```python
 import json
 import openai as client
 import streamlit as st
@@ -301,7 +302,7 @@ if not is_invalid:
                     stream.until_done()
 else:
     st.sidebar.warning("Input OpenAI API Key.")
-
+```
 """
         )
 
